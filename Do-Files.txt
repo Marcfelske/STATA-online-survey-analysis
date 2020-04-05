@@ -1,0 +1,259 @@
+*******************
+****USERNAME****
+*******************
+**********************
+***GENERAL SETTINGS***
+**********************
+set more off
+clear
+cap log close
+cd "/Users/USERNAME/Dropbox/PhD/STATA/Network Constellations/Output"
+log using Master.log, replace
+use "/Users/USERNAME/Dropbox/PhD/STATA/Network Constellations/Data.dta", clear
+
+***************
+***Variables***
+***************
+do "/Users/USERNAME/Dropbox/PhD/STATA/Network Constellations/Variables.do"
+
+******************
+***Descriptives***
+******************
+do "/Users/USERNAME/Dropbox/PhD/STATA/Network Constellations/Descriptives.do"
+
+*******************
+***Main Analyses***
+*******************
+do "/Users/USERNAME/Dropbox/PhD/STATA/Network Constellations/Main.do"
+
+*************************
+***** End of Do-File*****
+*************************
+log close
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+***************
+***VARIABLES***
+***************
+***DEPENDENT***
+***************
+
+recode DINVESTO DSTARTUP DACADEMI DOTHER OTHTENU INVTENUR SU1TENUR SU2TENUR SU3TENUE SU4TENUE FORSUTEN SENTENUR ACTENURE ASP1TENU ASP2TENU ASP3TENU (.=0)
+
+recode ACTINV-NUMINVES (.=0)
+recode INVROLE (5=0)
+
+******************
+***MAIN EFFECTS***
+******************
+
+***QUADRANTEN
+generate A=HETEHO_A
+label var A "Quadrant A: up/left"
+generate B=HETEHO_B
+label var B "Quadrant B: up/right"
+generate C=HETEHO_C
+label var C "Quadrant C: down/left"
+generate D=HETEHO_D
+label var D "Quadrant D: down/right"
+
+generate AC=0
+recode AC (0=1) if A==1 | C==1
+label var AC "left side"
+
+generate BD=0
+recode BD (0=1) if B==1 | D==1
+label var BD "right side"
+
+***CONTROLS***
+**************
+
+*AGE GENDER TENURE DINVESTO DSTARTUP DACADEMI DOTHER
+
+egen TENURE = rowmax(OTHTENU INVTENUR SU1TENUR SU2TENUR SU3TENUE SU4TENUE FORSUTEN SENTENUR ACTENURE ASP1TENU ASP2TENU ASP3TENU)
+label var TENURE "Experience in longest activity"
+
+egen MULTIWORK= anycount(DINVESTO DSTARTUP DACADEMI DOTHER), values(1)
+recode MULTIWORK (1 = 0)
+recode MULTIWORK (3 2 = 1)
+label var MULTIWORK "Did you work in multiple functions (yes=1; investor, academic, etc)"
+
+generate ACTIVE=0
+recode ACTIVE (0=1) if ACTINV==1
+
+generate FORMER=0
+recode FORMER (0=1) if ACTINV==2
+
+****
+generate VALUE = (HETEHOVA + NETCONVA + NETPOSVA)/3
+
+
+*******
+*ORDER*
+*******
+order ID ID_NO HETEHOVA NETCONVA NETPOSVA A B C D HETEHO_A HETEHO_B HETEHO_C HETEHO_D NETCON_A NETCON_B NETCON_C NETCON_D NETPOS_A NETPOS_B NETPOS_C NETPOS_D  AGE GENDER TENURE DINVESTO DSTARTUP DACADEMI DOTHER, first
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+******************
+***DESCRIPTIVES***
+******************
+
+tab AGE
+tab TENURE
+tab GENDER
+tab ACTIVE
+tab MULTIWORK
+tab DINVESTO
+tab DSTARTUP
+tab DACADEMI 
+
+
+tab DPRESEED 
+tab DSEED 
+tab DSERIESA
+tab DSERIESB
+tab DSERIESC
+tab DFINANC
+tab DSTRATEG 
+tab INVROLE //0-no investor, 1-angel investor, 2-venture capitalist, 3-corporate venture capitalist, 4-investment banker
+
+
+
+***********************
+***SUMMARY STAISTICS***
+***********************
+local MAIN VALUE
+*HETEHOVA NETCONVA NETPOSVA
+local IVS A B C D
+local CONTROLS AGE GENDER TENURE ACTIVE MULTIWORK DINVESTO DSTARTUP DACADEMI
+estpost summarize `MAIN' `IVS' `CONTROLS'
+estout . using SUMMARY.xls, replace cells("mean sd min max")
+
+******************
+***CORRELATIONS***
+******************
+estpost correlate `MAIN' `IVS' `CONTROLS', matrix listwise
+esttab using CORRELATIONS.csv, unstack not csv stardetach star(* 0.01) replace
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+**********
+***MAIN***
+**********
+*Heterogenous vs homogenous
+estimates clear
+local CONTROLS AGE GENDER TENURE ACTIVE MULTIWORK DINVESTO DSTARTUP DACADEMI
+eststo: regress HETEHOVA `CONTROLS' A if A==1 | B==1, vce(robust)
+eststo: regress HETEHOVA `CONTROLS' A if A==1 | C==1, vce(robust)
+eststo: regress HETEHOVA `CONTROLS' A if A==1 | D==1, vce(robust)
+eststo: regress HETEHOVA `CONTROLS' B if B==1 | A==1, vce(robust)
+eststo: regress HETEHOVA `CONTROLS' B if B==1 | C==1, vce(robust)
+eststo: regress HETEHOVA `CONTROLS' B if B==1 | D==1, vce(robust)
+eststo: regress HETEHOVA `CONTROLS' C if C==1 | A==1, vce(robust)
+eststo: regress HETEHOVA `CONTROLS' C if C==1 | B==1, vce(robust)
+eststo: regress HETEHOVA `CONTROLS' C if C==1 | D==1, vce(robust)
+eststo: regress HETEHOVA `CONTROLS' D if D==1 | A==1, vce(robust)
+eststo: regress HETEHOVA `CONTROLS' D if D==1 | B==1, vce(robust)
+eststo: regress HETEHOVA `CONTROLS' D if D==1 | C==1, vce(robust)
+estout using MAIN_HETEHOVA.xls, cells(b(star fmt(3)) se(par fmt(3))) stats(N r2 F p, fmt(3)) starlevels(* 0.1 ** 0.05 *** 0.01) stardetach replace
+estimates clear
+
+*Interconnected vs dispersed
+estimates clear
+local CONTROLS AGE GENDER TENURE ACTIVE MULTIWORK DINVESTO DSTARTUP DACADEMI
+eststo: regress NETCONVA `CONTROLS' A if A==1 | B==1, vce(robust)
+eststo: regress NETCONVA `CONTROLS' A if A==1 | C==1, vce(robust)
+eststo: regress NETCONVA `CONTROLS' A if A==1 | D==1, vce(robust)
+eststo: regress NETCONVA `CONTROLS' B if B==1 | A==1, vce(robust)
+eststo: regress NETCONVA `CONTROLS' B if B==1 | C==1, vce(robust)
+eststo: regress NETCONVA `CONTROLS' B if B==1 | D==1, vce(robust)
+eststo: regress NETCONVA `CONTROLS' C if C==1 | A==1, vce(robust)
+eststo: regress NETCONVA `CONTROLS' C if C==1 | B==1, vce(robust)
+eststo: regress NETCONVA `CONTROLS' C if C==1 | D==1, vce(robust)
+eststo: regress NETCONVA `CONTROLS' D if D==1 | A==1, vce(robust)
+eststo: regress NETCONVA `CONTROLS' D if D==1 | B==1, vce(robust)
+eststo: regress NETCONVA `CONTROLS' D if D==1 | C==1, vce(robust)
+estout using MAIN_NETCONVA.xls, cells(b(star fmt(3)) se(par fmt(3))) stats(N r2 F p, fmt(3)) starlevels(* 0.1 ** 0.05 *** 0.01) stardetach replace
+estimates clear
+
+
+*Central vs peripheral
+estimates clear
+local CONTROLS AGE GENDER TENURE ACTIVE MULTIWORK DINVESTO DSTARTUP DACADEMI
+eststo: regress NETPOSVA `CONTROLS' A if A==1 | B==1, vce(robust)
+eststo: regress NETPOSVA `CONTROLS' A if A==1 | C==1, vce(robust)
+eststo: regress NETPOSVA `CONTROLS' A if A==1 | D==1, vce(robust)
+eststo: regress NETPOSVA `CONTROLS' B if B==1 | A==1, vce(robust)
+eststo: regress NETPOSVA `CONTROLS' B if B==1 | C==1, vce(robust)
+eststo: regress NETPOSVA `CONTROLS' B if B==1 | D==1, vce(robust)
+eststo: regress NETPOSVA `CONTROLS' C if C==1 | A==1, vce(robust)
+eststo: regress NETPOSVA `CONTROLS' C if C==1 | B==1, vce(robust)
+eststo: regress NETPOSVA `CONTROLS' C if C==1 | D==1, vce(robust)
+eststo: regress NETPOSVA `CONTROLS' D if D==1 | A==1, vce(robust)
+eststo: regress NETPOSVA `CONTROLS' D if D==1 | B==1, vce(robust)
+eststo: regress NETPOSVA `CONTROLS' D if D==1 | C==1, vce(robust)
+estout using MAIN_NETPOSVA.xls, cells(b(star fmt(3)) se(par fmt(3))) stats(N r2 F p, fmt(3)) starlevels(* 0.1 ** 0.05 *** 0.01) stardetach replace
+estimates clear
+
+*Large versus small
+estimates clear
+local CONTROLS AGE GENDER TENURE ACTIVE MULTIWORK DINVESTO DSTARTUP DACADEMI
+eststo: regress HETEHOVA `CONTROLS' BD, vce(robust)
+eststo: regress NETCONVA `CONTROLS' BD, vce(robust)
+eststo: regress NETPOSVA `CONTROLS' BD, vce(robust)
+estout using MAIN_SIZE.xls, cells(b(star fmt(3)) se(par fmt(3))) stats(N r2 F p, fmt(3)) starlevels(* 0.1 ** 0.05 *** 0.01) stardetach replace
+estimates clear
